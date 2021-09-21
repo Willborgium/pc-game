@@ -1,12 +1,17 @@
-#include <Sample.h>
+#include <windows.h>
+
+#include <EntryPoint.h>
+using namespace PcGame;
 
 #pragma comment(lib, "PcGame.Engine.lib")
 
-int main(int argc, char* argv[])
+Engine::InitializationData Engine::InitializeApp()
 {
-	PcGame::Engine::Sample x;
+	Engine::InitializationData data;
 
-	x.Print("Hello world");
+	data.appName = L"PC Game";
+	data.windowWidth = 1920;
+	data.windowHeight = 1080;
 
-	return 0;
+	return data;
 }
