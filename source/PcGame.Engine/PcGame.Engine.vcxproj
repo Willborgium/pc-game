@@ -72,23 +72,27 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(SolutionDir)Output\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)Intermediate\$(Configuration)\$(ProjectName)\</IntDir>
+    <OutDir>$(SolutionDir)Output\$(Configuration)\$(PlatformShortname)\</OutDir>
+    <IntDir>$(SolutionDir)Intermediate\$(Configuration)\$(PlatformShortname)\$(ProjectName)\</IntDir>
+    <IncludePath>c:/cpp-common;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(SolutionDir)Output\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)Intermediate\$(Configuration)\$(ProjectName)\</IntDir>
+    <OutDir>$(SolutionDir)Output\$(Configuration)\$(PlatformShortname)\</OutDir>
+    <IntDir>$(SolutionDir)Intermediate\$(Configuration)\$(PlatformShortname)\$(ProjectName)\</IntDir>
+    <IncludePath>c:/cpp-common;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(SolutionDir)Output\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)Intermediate\$(Configuration)\$(ProjectName)\</IntDir>
+    <OutDir>$(SolutionDir)Output\$(Configuration)\$(PlatformShortname)\</OutDir>
+    <IntDir>$(SolutionDir)Intermediate\$(Configuration)\$(PlatformShortname)\$(ProjectName)\</IntDir>
+    <IncludePath>c:/cpp-common;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(SolutionDir)Output\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)Intermediate\$(Configuration)\$(ProjectName)\</IntDir>
+    <OutDir>$(SolutionDir)Output\$(Configuration)\$(PlatformShortname)\</OutDir>
+    <IntDir>$(SolutionDir)Intermediate\$(Configuration)\$(PlatformShortname)\$(ProjectName)\</IntDir>
+    <IncludePath>c:/cpp-common;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -153,9 +157,13 @@
   <ItemGroup>
     <ClInclude Include="Game.h" />
     <ClInclude Include="EntryPoint.h" />
+    <ClInclude Include="Renderer.h" />
+    <ClInclude Include="Utilities.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Game.cpp" />
+    <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="Utilities.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

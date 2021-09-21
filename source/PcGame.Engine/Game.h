@@ -1,5 +1,9 @@
 #pragma once
+
+#define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+
+#include "Renderer.h"
 
 namespace PcGame::Engine
 {
@@ -11,9 +15,12 @@ namespace PcGame::Engine
 		int Run();
 		void Uninitialize();
 	private:
+		void CreateAppWindow(LPCWSTR appName, HINSTANCE hInstance, int width, int height, int nCmdShow);
+
 		bool _isInitialized;
 		bool _isRunning;
 
 		HWND _hWnd;
+		Renderer* _renderer;
 	};
 };

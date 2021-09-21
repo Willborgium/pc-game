@@ -1,4 +1,3 @@
-#include <Windows.h>
 #include <tchar.h>
 
 #include "Game.h"
@@ -45,9 +44,21 @@ Game::Game()
 	_isInitialized = false;
 	_isRunning = false;
 	_hWnd = nullptr;
+	_renderer = nullptr;
 }
 
 void Game::Initialize(LPCWSTR appName, HINSTANCE hInstance, int width, int height, int nCmdShow)
+{
+	CreateAppWindow(appName, hInstance, width, height, nCmdShow);
+
+	_renderer = new Renderer();
+
+	_renderer->DoItAll();
+
+	_isInitialized = true;
+}
+
+void Game::CreateAppWindow(LPCWSTR appName, HINSTANCE hInstance, int width, int height, int nCmdShow)
 {
 	WNDCLASSEX setup;
 	setup.cbSize = sizeof(WNDCLASSEX);
@@ -99,8 +110,6 @@ void Game::Initialize(LPCWSTR appName, HINSTANCE hInstance, int width, int heigh
 
 	ShowWindow(_hWnd, nCmdShow);
 	UpdateWindow(_hWnd);
-
-	_isInitialized = true;
 }
 
 int Game::Run()

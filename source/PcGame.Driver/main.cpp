@@ -1,4 +1,5 @@
-#include <windows.h>
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
 
 #include <EntryPoint.h>
 using namespace PcGame;
