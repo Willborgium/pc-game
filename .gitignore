@@ -32,6 +32,6 @@
 *.app
 
 # Directories
-source/Debug
 source/.vs
-source/PcGame.Driver/Debug
+source/Intermediate
+source/Output
