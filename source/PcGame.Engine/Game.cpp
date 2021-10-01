@@ -5,6 +5,8 @@
 
 using namespace PcGame::Engine;
 
+#include <chrono>
+
 int WINAPI WinMain(
 	_In_ HINSTANCE		hInstance,
 	_In_opt_ HINSTANCE	hPrevInstance,
@@ -36,7 +38,17 @@ LRESULT CALLBACK WndProc(
 	_In_ WPARAM	wParam,
 	_In_ LPARAM	lParam)
 {
-	return DefWindowProc(hWnd, message, wParam, lParam);
+	switch (message)
+	{
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		break;
+
+	default:
+		return DefWindowProc(hWnd, message, wParam, lParam);
+	}
+
+	return 0;
 }
 
 Game::Game()
@@ -53,7 +65,7 @@ void Game::Initialize(LPCWSTR appName, HINSTANCE hInstance, int width, int heigh
 
 	_renderer = new Renderer();
 
-	_renderer->DoItAll();
+	_renderer->Initialize(_hWnd, width, height);
 
 	_isInitialized = true;
 }
@@ -112,6 +124,35 @@ void Game::CreateAppWindow(LPCWSTR appName, HINSTANCE hInstance, int width, int 
 	UpdateWindow(_hWnd);
 }
 
+void Update()
+{
+	static uint64_t frameCount = 0;
+	static double elapsedSeconds = 0.0;
+	static std::chrono::high_resolution_clock clock;
+	static auto previousTime = clock.now();
+
+	frameCount++;
+	auto now = clock.now();
+	auto delta = now - previousTime;
+	previousTime = now;
+
+	elapsedSeconds += delta.count() * 1e-9;
+
+	if (elapsedSeconds > 1)
+	{
+		char buffer[500];
+		ZeroMemory(buffer, 500);
+		auto fps = frameCount / elapsedSeconds;
+		sprintf_s(buffer, 500, "FPS: %f\n", fps);
+		wchar_t wbuffer[500];
+		MultiByteToWideChar(CP_ACP, 0, buffer, -1, wbuffer, 500);
+		OutputDebugString(wbuffer);
+
+		frameCount = 0;
+		elapsedSeconds = 0.0;
+	}
+}
+
 int Game::Run()
 {
 	if (!_isInitialized)
@@ -121,12 +162,20 @@ int Game::Run()
 
 	_isRunning = true;
 
-	MSG message;
+	MSG message{};
 
-	while (GetMessage(&message, nullptr, 0, 0))
+	while (message.message != WM_QUIT)
 	{
-		TranslateMessage(&message);
-		DispatchMessage(&message);
+		if (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE))
+		{
+			TranslateMessage(&message);
+			DispatchMessage(&message);
+		}
+		else
+		{
+			Update();
+			_renderer->Render();
+		}
 	}
 
 	_isRunning = false;
@@ -136,4 +185,6 @@ int Game::Run()
 
 void Game::Uninitialize()
 {
+	_renderer->Uninitialize();
+	delete _renderer;
 }
