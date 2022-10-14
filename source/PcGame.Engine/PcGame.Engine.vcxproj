@@ -23,7 +23,7 @@
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{e5a9d240-b6c8-4706-8f4d-dbba2d2fc1a1}</ProjectGuid>
     <RootNamespace>PcGameEngine</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.22000.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -159,11 +159,14 @@
     <ClInclude Include="EntryPoint.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Utilities.h" />
+    <ClInclude Include="WndProc.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="Utilities.cpp" />
+    <ClCompile Include="WinMain.cpp" />
+    <ClCompile Include="WndProc.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

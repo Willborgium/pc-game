@@ -9,22 +9,30 @@ using namespace PcGame::Engine;
 #include <d3dcompiler.h>
 #include <DirectXMath.h>
 
+#include <d3d12.h>
 #include <d3dx12.h>
+#include <d3d12sdklayers.h>
 #include <chrono>
+
+#define TARGET_FEATURE_LEVEL D3D_FEATURE_LEVEL_12_2
 
 Renderer::Renderer()
 {
 	_rtvDescriptorSize = 0;
-	_currentBackBufferIndex = 0;
+	_currentFrameIndex = 0;
+	_fenceEvent = nullptr;
+	_fenceValue = 0;
 }
 
-void EnableDebugging()
+ComPtr<ID3D12Debug5> CreateDebugInterface()
 {
+	ComPtr<ID3D12Debug5> output;
 #if defined(_DEBUG)
-	ComPtr<ID3D12Debug> debugInterface;
-	auto result = D3D12GetDebugInterface(IID_PPV_ARGS(&debugInterface));
+	auto result = D3D12GetDebugInterface(IID_PPV_ARGS(&output));
 	ThrowOnFail(result);
+	output->EnableDebugLayer();
 #endif
+	return output;
 }
 
 ComPtr<IDXGIFactory4> CreateFactory()
@@ -43,10 +51,8 @@ ComPtr<IDXGIFactory4> CreateFactory()
 	return factory;
 }
 
-ComPtr<IDXGIAdapter4> GetAdapter(bool useWarp)
+ComPtr<IDXGIAdapter4> GetAdapter(ComPtr<IDXGIFactory4> factory, bool useWarp)
 {
-	auto dxgiFactory = CreateFactory();
-
 	ComPtr<IDXGIAdapter1> dxgiAdapter1;
 	ComPtr<IDXGIAdapter4> dxgiAdapter4;
 
@@ -54,7 +60,7 @@ ComPtr<IDXGIAdapter4> GetAdapter(bool useWarp)
 
 	if (useWarp)
 	{
-		result = dxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&dxgiAdapter1));
+		result = factory->EnumWarpAdapter(IID_PPV_ARGS(&dxgiAdapter1));
 		ThrowOnFail(result);
 
 		result = dxgiAdapter1.As(&dxgiAdapter4);
@@ -64,7 +70,7 @@ ComPtr<IDXGIAdapter4> GetAdapter(bool useWarp)
 
 	SIZE_T maxDedicatedVideoMemory = 0;
 
-	for (UINT index = 0; dxgiFactory->EnumAdapters1(index, &dxgiAdapter1) != DXGI_ERROR_NOT_FOUND; index++)
+	for (UINT index = 0; factory->EnumAdapters1(index, &dxgiAdapter1) != DXGI_ERROR_NOT_FOUND; index++)
 	{
 		DXGI_ADAPTER_DESC1 dxgiAdapterDesc1;
 		dxgiAdapter1->GetDesc1(&dxgiAdapterDesc1);
@@ -73,7 +79,7 @@ ComPtr<IDXGIAdapter4> GetAdapter(bool useWarp)
 			dxgiAdapterDesc1.DedicatedVideoMemory > maxDedicatedVideoMemory &&
 			SUCCEEDED(D3D12CreateDevice(
 				dxgiAdapter1.Get(),
-				D3D_FEATURE_LEVEL_12_0,
+				TARGET_FEATURE_LEVEL,
 				__uuidof(ID3D12Device),
 				nullptr
 			)))
@@ -81,28 +87,29 @@ ComPtr<IDXGIAdapter4> GetAdapter(bool useWarp)
 			maxDedicatedVideoMemory = dxgiAdapterDesc1.DedicatedVideoMemory;
 			result = dxgiAdapter1.As(&dxgiAdapter4);
 			ThrowOnFail(result);
+			break;
 		}
 	}
 
 	return dxgiAdapter4;
 }
 
-ComPtr<ID3D12Device2> CreateDevice()
+ComPtr<ID3D12Device2> CreateDevice(ComPtr<IDXGIFactory4> factory)
 {
-	auto adapter = GetAdapter(false);
+	auto adapter = GetAdapter(factory, false);
 
 	ComPtr<ID3D12Device2> device;
 
 	auto result = D3D12CreateDevice(
 		adapter.Get(),
-		D3D_FEATURE_LEVEL_11_0,
+		TARGET_FEATURE_LEVEL,
 		IID_PPV_ARGS(&device));
 	ThrowOnFail(result);
 
 	return device;
 }
 
-void EnableInfoQueue(ComPtr<ID3D12Device2> device)
+void EnableInfoQueue(ComPtr<ID3D12Device> device)
 {
 #if defined(_DEBUG)
 	ComPtr<ID3D12InfoQueue> infoQueue;
@@ -111,6 +118,7 @@ void EnableInfoQueue(ComPtr<ID3D12Device2> device)
 	infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
 	infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
 	infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
+	infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_INFO, TRUE);
 
 	//D3D12_MESSAGE_CATEGORY suppressedCategories[] = {};
 
@@ -190,6 +198,7 @@ ComPtr<IDXGISwapChain4> CreateSwapChain(
 	uint32_t height,
 	uint32_t bufferCount,
 	HWND hwnd,
+	ComPtr<IDXGIFactory4> factory,
 	ComPtr<ID3D12CommandQueue> commandQueue)
 {
 	DXGI_SWAP_CHAIN_DESC1 description = {};
@@ -206,8 +215,6 @@ ComPtr<IDXGISwapChain4> CreateSwapChain(
 
 	auto isTearingSupported = CheckTearingSupport();
 	description.Flags = isTearingSupported ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
-
-	auto factory = CreateFactory();
 
 	ComPtr<IDXGISwapChain1> swapChain1;
 	auto result = factory->CreateSwapChainForHwnd(
@@ -236,6 +243,7 @@ ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(ComPtr
 	D3D12_DESCRIPTOR_HEAP_DESC description = {};
 	description.NumDescriptors = descriptorCount;
 	description.Type = type;
+	description.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 
 	auto result = device->CreateDescriptorHeap(
 		&description,
@@ -270,15 +278,69 @@ ComPtr<ID3D12CommandAllocator> CreateCommandAllocator(
 	return commandAllocator;
 }
 
+ComPtr<ID3D12PipelineState> CreatePipelineState(ComPtr<ID3D12Device> device)
+{
+	ComPtr<ID3D12PipelineState> output;
+
+	ComPtr<ID3DBlob> vertexShader;
+	ComPtr<ID3DBlob> pixelShader;
+
+#if defined(_DEBUG)
+	// Enable better shader debugging with the graphics debugging tools.
+	UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#else
+	UINT compileFlags = 0;
+#endif
+
+	auto result = D3DCompileFromFile(L"shaders.hlsl", nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, nullptr);
+	ThrowOnFail(result);
+
+	result = D3DCompileFromFile(L"shaders.hlsl", nullptr, nullptr, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, nullptr);
+	ThrowOnFail(result);
+
+	// This should be dynamic and come from the shaders
+	D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateDescription = {};
+
+	pipelineStateDescription.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	pipelineStateDescription.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	pipelineStateDescription.DepthStencilState.DepthEnable = FALSE;
+	pipelineStateDescription.DepthStencilState.StencilEnable = FALSE;
+	pipelineStateDescription.SampleMask = UINT_MAX;
+	pipelineStateDescription.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	pipelineStateDescription.NumRenderTargets = 1;
+	pipelineStateDescription.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	pipelineStateDescription.SampleDesc.Count = 1;
+
+	result = device->CreateGraphicsPipelineState
+	(
+		&pipelineStateDescription,
+		IID_PPV_ARGS(&output)
+	);
+	ThrowOnFail(result);
+
+	return output;
+}
+
 ComPtr<ID3D12GraphicsCommandList> CreateCommandList(
 	ComPtr<ID3D12Device2> device,
 	ComPtr<ID3D12CommandAllocator> commandAllocator,
+	ComPtr<ID3D12PipelineState> pipelineState,
 	D3D12_COMMAND_LIST_TYPE type)
 {
 	ComPtr<ID3D12GraphicsCommandList> commandList;
-	auto result = device->CreateCommandList(0, type, commandAllocator.Get(), nullptr, IID_PPV_ARGS(&commandList));
+	
+	auto result = device->CreateCommandList(0, type, commandAllocator.Get(), pipelineState.Get(), IID_PPV_ARGS(&commandList));
 	ThrowOnFail(result);
+	
 	result = commandList->Close();
+	ThrowOnFail(result);
+
 	return commandList;
 }
 
@@ -295,19 +357,12 @@ ComPtr<ID3D12Fence> CreateFence(ComPtr<ID3D12Device2> device)
 
 HANDLE CreateEventHandle()
 {
-	auto fenceEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
-	assert(fenceEvent && "Failed to create fence event.");
+	auto fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	if (fenceEvent == nullptr)
+	{
+		ThrowOnFail(HRESULT_FROM_WIN32(GetLastError()));
+	}
 	return fenceEvent;
-}
-
-uint64_t Signal(
-	ComPtr<ID3D12CommandQueue> commandQueue,
-	ComPtr<ID3D12Fence> fence,
-	uint64_t fenceValue)
-{
-	auto fenceValueForSignal = fenceValue + 1;
-	auto result = commandQueue->Signal(fence.Get(), fenceValueForSignal);
-	return fenceValueForSignal;
 }
 
 #ifdef max
@@ -329,69 +384,65 @@ void WaitForFenceValue(
 	WaitForSingleObject(fenceEvent, static_cast<DWORD>(duration.count()));
 }
 
-void Flush(
-	ComPtr<ID3D12CommandQueue> commandQueue,
-	ComPtr<ID3D12Fence> fence,
-	uint64_t& fenceValue,
-	HANDLE fenceEvent)
-{
-	auto fenceValueForSignal = Signal(commandQueue, fence, fenceValue);
-	WaitForFenceValue(fence, fenceValueForSignal, fenceEvent);
-}
-
 void Renderer::Initialize(HWND hwnd,
 	uint32_t width,
 	uint32_t height)
 {
-	EnableDebugging();
+	_debugInterface = CreateDebugInterface();
 
-	_device = CreateDevice();
+	auto factory = CreateFactory();
 
-	// Figure out why this is saying interface not supported
-	//EnableInfoQueue(_device);
+	_device = CreateDevice(factory);
+
+	EnableInfoQueue(_device);
 
 	_commandQueue = CreateCommandQueue(_device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 
-	_swapChain = CreateSwapChain(width, height, FrameCount, hwnd, _commandQueue);
+	_swapChain = CreateSwapChain(width, height, FrameCount, hwnd, factory, _commandQueue);
 
-	_currentBackBufferIndex = _swapChain->GetCurrentBackBufferIndex();
+	_currentFrameIndex = _swapChain->GetCurrentBackBufferIndex();
 
 	_rtvDescriptorHeap = CreateDescriptorHeap(_device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, FrameCount);
 
+	_rtvDescriptorSize = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
 	UpdateRenderTargetViews();
 
-	for (auto commandAllocatorIndex = 0; commandAllocatorIndex < FrameCount; commandAllocatorIndex++)
+	_bundleAllocator = CreateCommandAllocator(_device, D3D12_COMMAND_LIST_TYPE_BUNDLE);
+
+	for (auto index = 0; index < FrameCount; index++)
 	{
-		_commandAllocators[commandAllocatorIndex] = CreateCommandAllocator(_device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+		_commandAllocators[index] = CreateCommandAllocator(_device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+		_commandLists[index] = CreateCommandList(
+			_device,
+			_commandAllocators[index],
+			_pipelineState,
+			D3D12_COMMAND_LIST_TYPE_DIRECT);
 	}
 
-	_commandList = CreateCommandList(_device, _commandAllocators[_currentBackBufferIndex], D3D12_COMMAND_LIST_TYPE_DIRECT);
+	//_pipelineState = CreatePipelineState(_device);
 
 	_fence = CreateFence(_device);
+	_fenceValue = 1;
 	_fenceEvent = CreateEventHandle();
-
-	// https://www.3dgep.com/learning-directx-12-1/#create-a-fence
 }
 
 void Renderer::Uninitialize()
 {
-	Flush
-	(
-		_commandQueue,
-		_fence,
-		_fenceValue,
-		_fenceEvent
-	);
 	CloseHandle(_fenceEvent);
 }
 
 void Renderer::Render()
 {
-	auto commandAllocator = _commandAllocators[_currentBackBufferIndex];
-	auto backBuffer = _backBuffers[_currentBackBufferIndex];
+	auto commandAllocator = _commandAllocators[_currentFrameIndex];
+	auto result = commandAllocator->Reset();
+	ThrowOnFail(result);
 
-	commandAllocator->Reset();
-	_commandList->Reset(commandAllocator.Get(), nullptr);
+	auto commandList = _commandLists[_currentFrameIndex];
+	result = commandList->Reset(commandAllocator.Get(), _pipelineState.Get());
+	ThrowOnFail(result);
+
+	auto &backBuffer = _backBuffers[_currentFrameIndex];
 
 	auto presentToRtvBarrier = CD3DX12_RESOURCE_BARRIER::Transition
 	(
@@ -400,17 +451,17 @@ void Renderer::Render()
 		D3D12_RESOURCE_STATE_RENDER_TARGET
 	);
 
-	_commandList->ResourceBarrier(1, &presentToRtvBarrier);
+	commandList->ResourceBarrier(1, &presentToRtvBarrier);
 
-	float clearColor[] = { .4f, .6f, .9f, 1.0f };
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtv
 	(
 		_rtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-		_currentBackBufferIndex,
+		_currentFrameIndex,
 		_rtvDescriptorSize
 	);
 
-	_commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
+	float clearColor[] = { .4f, .6f, .9f, 1.0f };
+	commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
 
 	auto rtvToPresentBarrier = CD3DX12_RESOURCE_BARRIER::Transition
 	(
@@ -418,19 +469,32 @@ void Renderer::Render()
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
 		D3D12_RESOURCE_STATE_PRESENT
 	);
-	_commandList->ResourceBarrier(1, &rtvToPresentBarrier);
+	commandList->ResourceBarrier(1, &rtvToPresentBarrier);
 
-	auto result = _commandList->Close();
+	result = commandList->Close();
+	ThrowOnFail(result);
+
 	ID3D12CommandList* const commandLists[] =
 	{
-		_commandList.Get()
+		commandList.Get()
 	};
 	_commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
 
 	auto syncInterval = 1;
-	auto presentFlags = 0;// DXGI_PRESENT_ALLOW_TEARING;
-	result = _swapChain->Present(syncInterval, presentFlags);
-	_currentBackBufferIndex = _swapChain->GetCurrentBackBufferIndex();
+	auto presentFlags = 0;
 
-	WaitForFenceValue(_fence, _frameFenceValues[_currentBackBufferIndex], _fenceEvent);
+	result = _swapChain->Present(syncInterval, presentFlags);
+	ThrowOnFail(result);
+
+	auto fence = ++_fenceValue;
+	result = _commandQueue->Signal(_fence.Get(), fence);
+	ThrowOnFail(result);
+
+	if (_fence->GetCompletedValue() < fence)
+	{
+		result = _fence->SetEventOnCompletion(fence, _fenceEvent);
+		WaitForSingleObject(_fenceEvent, INFINITE);
+	}
+
+	_currentFrameIndex = _swapChain->GetCurrentBackBufferIndex();
 }

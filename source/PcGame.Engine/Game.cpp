@@ -1,55 +1,16 @@
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
 #include <tchar.h>
 
 #include "Game.h"
 #include "EntryPoint.h"
+#include "WndProc.h"
+#include "Utilities.h"
 
 using namespace PcGame::Engine;
 
 #include <chrono>
-
-int WINAPI WinMain(
-	_In_ HINSTANCE		hInstance,
-	_In_opt_ HINSTANCE	hPrevInstance,
-	_In_ LPSTR			lpCmdLine,
-	_In_ int			nCmdShow
-)
-{
-	const auto data = InitializeApp();
-
-	Game game;
-
-	game.Initialize(
-		data.appName,
-		hInstance,
-		data.windowWidth,
-		data.windowHeight,
-		nCmdShow);
-
-	auto result = game.Run();
-
-	game.Uninitialize();
-
-	return result;
-}
-
-LRESULT CALLBACK WndProc(
-	_In_ HWND	hWnd,
-	_In_ UINT	message,
-	_In_ WPARAM	wParam,
-	_In_ LPARAM	lParam)
-{
-	switch (message)
-	{
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		break;
-
-	default:
-		return DefWindowProc(hWnd, message, wParam, lParam);
-	}
-
-	return 0;
-}
 
 Game::Game()
 {
@@ -75,7 +36,7 @@ void Game::CreateAppWindow(LPCWSTR appName, HINSTANCE hInstance, int width, int 
 	WNDCLASSEX setup;
 	setup.cbSize = sizeof(WNDCLASSEX);
 	setup.style = CS_HREDRAW | CS_VREDRAW;
-	setup.lpfnWndProc = WndProc;
+	setup.lpfnWndProc = PcGame::WndProc;
 	setup.cbClsExtra = 0;
 	setup.cbWndExtra = 0;
 	setup.hInstance = hInstance;
@@ -89,11 +50,7 @@ void Game::CreateAppWindow(LPCWSTR appName, HINSTANCE hInstance, int width, int 
 	auto result = RegisterClassEx(&setup);
 	if (!result)
 	{
-		MessageBox(
-			nullptr,
-			_T("Call to RegisterClassEx failed!"),
-			_T("Call failed"),
-			0);
+		DisplayMessage(_T("Call failed"), _T("Call to RegisterClassEx failed!"));
 		return;
 	}
 
@@ -112,11 +69,7 @@ void Game::CreateAppWindow(LPCWSTR appName, HINSTANCE hInstance, int width, int 
 
 	if (!_hWnd)
 	{
-		MessageBox(
-			nullptr,
-			_T("Call to CreateWindowEx failed!"),
-			_T("Call failed"),
-			0);
+		DisplayMessage(_T("Call failed"), _T("Call to CreateWindowEx failed!"));
 		return;
 	}
 

@@ -1,3 +1,5 @@
+#pragma once
+
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
@@ -8,7 +10,7 @@ using namespace PcGame;
 
 Engine::InitializationData Engine::InitializeApp()
 {
-	Engine::InitializationData data;
+	auto data = Engine::InitializationData();
 
 	data.appName = L"PC Game";
 	data.windowWidth = 1920;

@@ -6,4 +6,5 @@
 namespace PcGame::Engine
 {
 	void ThrowOnFail(HRESULT result);
+	void DisplayMessage(LPCWSTR title, LPCWSTR message);
 }
