@@ -432,17 +432,17 @@ void Renderer::Uninitialize()
 	CloseHandle(_fenceEvent);
 }
 
-void Renderer::Render()
+void Begin(
+	ComPtr<ID3D12CommandAllocator> commandAllocator,
+	ComPtr<ID3D12GraphicsCommandList> commandList,
+	ComPtr<ID3D12Resource> backBuffer
+)
 {
-	auto commandAllocator = _commandAllocators[_currentFrameIndex];
 	auto result = commandAllocator->Reset();
 	ThrowOnFail(result);
 
-	auto commandList = _commandLists[_currentFrameIndex];
-	result = commandList->Reset(commandAllocator.Get(), _pipelineState.Get());
+	result = commandList->Reset(commandAllocator.Get(), nullptr);
 	ThrowOnFail(result);
-
-	auto &backBuffer = _backBuffers[_currentFrameIndex];
 
 	auto presentToRtvBarrier = CD3DX12_RESOURCE_BARRIER::Transition
 	(
@@ -452,17 +452,35 @@ void Renderer::Render()
 	);
 
 	commandList->ResourceBarrier(1, &presentToRtvBarrier);
+}
 
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtv
-	(
-		_rtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-		_currentFrameIndex,
-		_rtvDescriptorSize
-	);
+CD3DX12_CPU_DESCRIPTOR_HANDLE GetCurrentRtvDescriptorHandle(
+	ComPtr<ID3D12DescriptorHeap> descriptorHeap,
+	unsigned int currentFrameIndex,
+	unsigned int descriptorSize
+)
+{
+	auto handle = descriptorHeap->GetCPUDescriptorHandleForHeapStart();
 
-	float clearColor[] = { .4f, .6f, .9f, 1.0f };
-	commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
+	return CD3DX12_CPU_DESCRIPTOR_HANDLE(handle, currentFrameIndex, descriptorSize);
+}
 
+void Clear(
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvDescriptorHandle,
+	ComPtr<ID3D12GraphicsCommandList> commandList,
+	float r, float g, float b, float a
+	)
+{
+	float clearColor[] = { r, g, b, a };
+	commandList->ClearRenderTargetView(rtvDescriptorHandle, clearColor, 0, nullptr);
+}
+
+void Present(
+	ComPtr<ID3D12Resource> backBuffer,
+	ComPtr<ID3D12GraphicsCommandList> commandList,
+	ComPtr<ID3D12CommandQueue> commandQueue,
+	ComPtr<IDXGISwapChain4> swapChain)
+{
 	auto rtvToPresentBarrier = CD3DX12_RESOURCE_BARRIER::Transition
 	(
 		backBuffer.Get(),
@@ -471,30 +489,83 @@ void Renderer::Render()
 	);
 	commandList->ResourceBarrier(1, &rtvToPresentBarrier);
 
-	result = commandList->Close();
+	auto result = commandList->Close();
 	ThrowOnFail(result);
 
 	ID3D12CommandList* const commandLists[] =
 	{
 		commandList.Get()
 	};
-	_commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
+	commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
 
 	auto syncInterval = 1;
 	auto presentFlags = 0;
 
-	result = _swapChain->Present(syncInterval, presentFlags);
+	result = swapChain->Present(syncInterval, presentFlags);
+	ThrowOnFail(result);
+}
+
+void Flush(
+	uint64_t* pFenceValue,
+	ComPtr< ID3D12CommandQueue> commandQueue,
+	ComPtr<ID3D12Fence> fence,
+	HANDLE fenceEvent,
+	unsigned int* pCurrentFrameIndex,
+	ComPtr<IDXGISwapChain4> swapChain
+	)
+{
+
+	auto fenceValue = *pFenceValue;
+	(*pFenceValue) = fenceValue + 1;
+	auto result = commandQueue->Signal(fence.Get(), fenceValue);
 	ThrowOnFail(result);
 
-	auto fence = ++_fenceValue;
-	result = _commandQueue->Signal(_fence.Get(), fence);
-	ThrowOnFail(result);
-
-	if (_fence->GetCompletedValue() < fence)
+	if (fence->GetCompletedValue() < fenceValue)
 	{
-		result = _fence->SetEventOnCompletion(fence, _fenceEvent);
-		WaitForSingleObject(_fenceEvent, INFINITE);
+		result = fence->SetEventOnCompletion(fenceValue, fenceEvent);
+		WaitForSingleObject(fenceEvent, INFINITE);
 	}
 
-	_currentFrameIndex = _swapChain->GetCurrentBackBufferIndex();
+	(*pCurrentFrameIndex) = swapChain->GetCurrentBackBufferIndex();
+}
+
+void Renderer::Render()
+{
+	auto& commandAllocator = _commandAllocators[_currentFrameIndex];
+	auto& commandList = _commandLists[_currentFrameIndex];
+	auto& backBuffer = _backBuffers[_currentFrameIndex];
+
+	Begin(
+		commandAllocator,
+		commandList,
+		backBuffer
+	);
+
+	auto rtvDescriptorHandle = GetCurrentRtvDescriptorHandle(
+		_rtvDescriptorHeap,
+		_currentFrameIndex,
+		_rtvDescriptorSize
+	);
+
+	Clear(
+		rtvDescriptorHandle,
+		commandList,
+		.4, .6, .8, 1.0
+	);
+
+	Present(
+		backBuffer,
+		commandList,
+		_commandQueue,
+		_swapChain
+	);
+
+	Flush(
+		&_fenceValue,
+		_commandQueue,
+		_fence,
+		_fenceEvent,
+		&_currentFrameIndex,
+		_swapChain
+	);
 }
