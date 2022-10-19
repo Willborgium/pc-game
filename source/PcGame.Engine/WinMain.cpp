@@ -4,6 +4,8 @@
 #include "Game.h"
 #include "EntryPoint.h"
 
+using namespace PcGame::Engine;
+
 int WINAPI WinMain(
 	_In_ HINSTANCE		hInstance,
 	_In_opt_ HINSTANCE	hPrevInstance,
@@ -11,9 +13,13 @@ int WINAPI WinMain(
 	_In_ int			nCmdShow
 )
 {
-	const auto data = PcGame::Engine::InitializeApp();
+	auto serviceManager = new ServiceManager();
 
-	PcGame::Engine::Game game;
+	const auto data = InitializeApp(serviceManager);
+
+	auto initialState = data.initialStateFactory(serviceManager);
+
+	PcGame::Engine::Game game(initialState);
 
 	game.Initialize(
 		data.appName,
@@ -25,6 +31,8 @@ int WINAPI WinMain(
 	auto result = game.Run();
 
 	game.Uninitialize();
+
+	delete initialState;
 
 	return result;
 }

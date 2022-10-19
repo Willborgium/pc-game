@@ -12,12 +12,13 @@ using namespace PcGame::Engine;
 
 #include <chrono>
 
-Game::Game()
+Game::Game(IState* initialState)
 {
 	_isInitialized = false;
 	_isRunning = false;
 	_hWnd = nullptr;
 	_renderer = nullptr;
+	_state = initialState;
 }
 
 void Game::Initialize(LPCWSTR appName, HINSTANCE hInstance, int width, int height, int nCmdShow)
@@ -77,35 +78,6 @@ void Game::CreateAppWindow(LPCWSTR appName, HINSTANCE hInstance, int width, int 
 	UpdateWindow(_hWnd);
 }
 
-void Update()
-{
-	static uint64_t frameCount = 0;
-	static double elapsedSeconds = 0.0;
-	static std::chrono::high_resolution_clock clock;
-	static auto previousTime = clock.now();
-
-	frameCount++;
-	auto now = clock.now();
-	auto delta = now - previousTime;
-	previousTime = now;
-
-	elapsedSeconds += delta.count() * 1e-9;
-
-	if (elapsedSeconds > 1)
-	{
-		char buffer[500];
-		ZeroMemory(buffer, 500);
-		auto fps = frameCount / elapsedSeconds;
-		sprintf_s(buffer, 500, "FPS: %f\n", fps);
-		wchar_t wbuffer[500];
-		MultiByteToWideChar(CP_ACP, 0, buffer, -1, wbuffer, 500);
-		OutputDebugString(wbuffer);
-
-		frameCount = 0;
-		elapsedSeconds = 0.0;
-	}
-}
-
 int Game::Run()
 {
 	if (!_isInitialized)
@@ -126,7 +98,7 @@ int Game::Run()
 		}
 		else
 		{
-			Update();
+			_state->Update();
 			_renderer->Render();
 		}
 	}

@@ -4,13 +4,14 @@
 #include <Windows.h>
 
 #include "Renderer.h"
+#include "IState.h"
 
 namespace PcGame::Engine
 {
 	class Game
 	{
 	public:
-		Game();
+		Game(IState* initialState);
 		void Initialize(LPCWSTR appName, HINSTANCE hInstance, int width, int height, int nCmdShow);
 		int Run();
 		void Uninitialize();
@@ -22,5 +23,6 @@ namespace PcGame::Engine
 
 		HWND _hWnd;
 		Renderer* _renderer;
+		IState* _state;
 	};
 };
