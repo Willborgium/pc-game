@@ -163,6 +163,7 @@
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="ServiceManager.h" />
     <ClInclude Include="Utilities.h" />
+    <ClInclude Include="VertexPositionColor.h" />
     <ClInclude Include="WndProc.h" />
   </ItemGroup>
   <ItemGroup>
