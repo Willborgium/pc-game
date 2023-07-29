@@ -1,5 +1,6 @@
 #include "Renderer.h"
 #include "Utilities.h"
+#include "VertexPositionColor.h"
 using namespace PcGame::Engine;
 
 
@@ -278,7 +279,15 @@ ComPtr<ID3D12CommandAllocator> CreateCommandAllocator(
 	return commandAllocator;
 }
 
-ComPtr<ID3D12PipelineState> CreatePipelineState(ComPtr<ID3D12Device> device)
+D3D12_SHADER_BYTECODE CreateShaderByteCode(ComPtr<ID3DBlob> shader)
+{
+	D3D12_SHADER_BYTECODE output;
+	output.pShaderBytecode = shader->GetBufferPointer();
+	output.BytecodeLength = shader->GetBufferSize();
+	return output;
+}
+
+ComPtr<ID3D12PipelineState> CreatePipelineState(ComPtr<ID3D12Device> device, ComPtr<ID3D12RootSignature> rootSignature)
 {
 	ComPtr<ID3D12PipelineState> output;
 
@@ -316,6 +325,11 @@ ComPtr<ID3D12PipelineState> CreatePipelineState(ComPtr<ID3D12Device> device)
 	pipelineStateDescription.NumRenderTargets = 1;
 	pipelineStateDescription.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	pipelineStateDescription.SampleDesc.Count = 1;
+	pipelineStateDescription.InputLayout.NumElements = 2;
+	pipelineStateDescription.InputLayout.pInputElementDescs = inputElementDescs;
+	pipelineStateDescription.VS = CreateShaderByteCode(vertexShader);
+	pipelineStateDescription.PS = CreateShaderByteCode(pixelShader);
+	pipelineStateDescription.pRootSignature = rootSignature.Get();
 
 	result = device->CreateGraphicsPipelineState
 	(
@@ -384,6 +398,89 @@ void WaitForFenceValue(
 	WaitForSingleObject(fenceEvent, static_cast<DWORD>(duration.count()));
 }
 
+
+ComPtr<ID3D12RootSignature> CreateRootSignature(ComPtr<ID3D12Device> device)
+{
+	// Step 1: Define root parameters and descriptor tables as needed
+
+	// Step 2: Set up root signature description
+	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
+	rootSignatureDesc.NumParameters = 0;
+	rootSignatureDesc.pParameters = nullptr;
+	rootSignatureDesc.NumStaticSamplers = 0;
+	rootSignatureDesc.pStaticSamplers = nullptr;
+	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT; // Optional flags
+
+	// Step 3: Compile root signature
+	ID3DBlob* serializedRootSignature = nullptr;
+	ID3DBlob* errorBlob = nullptr;
+	auto result = D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &serializedRootSignature, &errorBlob);
+
+	if (FAILED(result))
+	{
+		ThrowOnFail(result);
+	}
+
+	// Step 4: Create root signature object
+	ComPtr<ID3D12RootSignature> rootSignature;
+	result = device->CreateRootSignature(0, serializedRootSignature->GetBufferPointer(), serializedRootSignature->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
+
+	if (FAILED(result))
+	{
+		ThrowOnFail(result);
+	}
+
+	// Don't forget to release the serializedRootSignature and errorBlob resources when you're done with them
+	serializedRootSignature->Release();
+	if (errorBlob) errorBlob->Release();
+
+	return rootSignature;
+}
+
+D3D12_VERTEX_BUFFER_VIEW CreateTriangle(ComPtr<ID3D12Device> device)
+{
+	auto aspectRatio = 16.0f / 9.0f;
+
+	VertexPositionColor vertices[] =
+	{
+		{ { 0.0f, 0.25f * aspectRatio, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+		{ { 0.25f, -0.25f * aspectRatio, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+		{ { -0.25f, -0.25f * aspectRatio, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
+	};
+
+	const UINT vertexBufferSize = sizeof(vertices);
+
+	// Note: using upload heaps to transfer static data like vert buffers is not 
+	// recommended. Every time the GPU needs it, the upload heap will be marshalled 
+	// over. Please read up on Default Heap usage. An upload heap is used here for 
+	// code simplicity and because there are very few verts to actually transfer.
+	ComPtr<ID3D12Resource> vertexBuffer;
+	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
+	auto desc = CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize);
+	ThrowOnFail(device->CreateCommittedResource(
+		&heapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&desc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&vertexBuffer)));
+
+	// Copy the triangle data to the vertex buffer.
+	UINT8* pVertexDataBegin;
+	CD3DX12_RANGE readRange(0, 0);        // We do not intend to read from this resource on the CPU.
+	ThrowOnFail(vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));
+	memcpy(pVertexDataBegin, vertices, sizeof(vertices));
+	vertexBuffer->Unmap(0, nullptr);
+
+	// Initialize the vertex buffer view.
+	D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
+	vertexBufferView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
+	vertexBufferView.StrideInBytes = sizeof(VertexPositionColor);
+	vertexBufferView.SizeInBytes = vertexBufferSize;
+
+	return vertexBufferView;
+}
+
 void Renderer::Initialize(HWND hwnd,
 	uint32_t width,
 	uint32_t height)
@@ -420,7 +517,11 @@ void Renderer::Initialize(HWND hwnd,
 			D3D12_COMMAND_LIST_TYPE_DIRECT);
 	}
 
-	//_pipelineState = CreatePipelineState(_device);
+	_rootSignature = CreateRootSignature(_device);
+
+	_pipelineState = CreatePipelineState(_device, _rootSignature);
+
+	_triangle = CreateTriangle(_device);
 
 	_fence = CreateFence(_device);
 	_fenceValue = 1;
@@ -435,7 +536,8 @@ void Renderer::Uninitialize()
 void Begin(
 	ComPtr<ID3D12CommandAllocator> commandAllocator,
 	ComPtr<ID3D12GraphicsCommandList> commandList,
-	ComPtr<ID3D12Resource> backBuffer
+	ComPtr<ID3D12Resource> backBuffer,
+	ComPtr<ID3D12RootSignature> rootSignature
 )
 {
 	auto result = commandAllocator->Reset();
@@ -443,6 +545,8 @@ void Begin(
 
 	result = commandList->Reset(commandAllocator.Get(), nullptr);
 	ThrowOnFail(result);
+
+	commandList->SetComputeRootSignature(rootSignature.Get());
 
 	auto presentToRtvBarrier = CD3DX12_RESOURCE_BARRIER::Transition
 	(
@@ -538,7 +642,8 @@ void Renderer::Render()
 	Begin(
 		commandAllocator,
 		commandList,
-		backBuffer
+		backBuffer,
+		_rootSignature
 	);
 
 	auto rtvDescriptorHandle = GetCurrentRtvDescriptorHandle(
@@ -550,8 +655,12 @@ void Renderer::Render()
 	Clear(
 		rtvDescriptorHandle,
 		commandList,
-		.4, .6, .8, 1.0
+		.9, .6, .8, 1.0
 	);
+
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList->IASetVertexBuffers(0, 1, &_triangle);
+	commandList->DrawInstanced(3, 1, 0, 0);
 
 	Present(
 		backBuffer,

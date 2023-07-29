@@ -31,8 +31,10 @@ namespace PcGame::Engine
 		ComPtr<ID3D12Resource> _backBuffers[FrameCount];
 		ComPtr<ID3D12CommandAllocator> _commandAllocators[FrameCount];
 		ComPtr<ID3D12GraphicsCommandList> _commandLists[FrameCount];
+		ComPtr<ID3D12RootSignature> _rootSignature;
 		ComPtr<ID3D12PipelineState> _pipelineState;
 		ComPtr<ID3D12CommandAllocator> _bundleAllocator;
+		D3D12_VERTEX_BUFFER_VIEW _triangle;
 		unsigned int _rtvDescriptorSize;
 		unsigned int _currentFrameIndex;
 		ComPtr<ID3D12Fence> _fence;
