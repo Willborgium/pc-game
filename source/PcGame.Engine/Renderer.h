@@ -22,6 +22,9 @@ namespace PcGame::Engine
 		void Uninitialize();
 
 	private:
+
+		void Flush();
+
 		const static unsigned char FrameCount = 3;
 		ComPtr<ID3D12Device2> _device;
 		ComPtr<ID3D12Debug5> _debugInterface;

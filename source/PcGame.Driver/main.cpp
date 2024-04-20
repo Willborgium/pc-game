@@ -11,6 +11,10 @@ using namespace PcGame;
 
 #pragma comment(lib, "PcGame.Engine.lib")
 
+extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 4; }
+
+extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\"; }
+
 Engine::IState* createInitialState(Engine::ServiceManager* serviceManager)
 {
 	return new Driver::SampleState(serviceManager);

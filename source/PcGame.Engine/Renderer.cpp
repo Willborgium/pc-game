@@ -23,6 +23,7 @@ Renderer::Renderer()
 	_currentFrameIndex = 0;
 	_fenceEvent = nullptr;
 	_fenceValue = 0;
+	_triangle = {};
 }
 
 ComPtr<ID3D12Debug5> CreateDebugInterface()
@@ -281,7 +282,7 @@ ComPtr<ID3D12CommandAllocator> CreateCommandAllocator(
 
 D3D12_SHADER_BYTECODE CreateShaderByteCode(ComPtr<ID3DBlob> shader)
 {
-	D3D12_SHADER_BYTECODE output;
+	D3D12_SHADER_BYTECODE output = {};
 	output.pShaderBytecode = shader->GetBufferPointer();
 	output.BytecodeLength = shader->GetBufferSize();
 	return output;
@@ -466,14 +467,14 @@ D3D12_VERTEX_BUFFER_VIEW CreateTriangle(ComPtr<ID3D12Device> device)
 		IID_PPV_ARGS(&vertexBuffer)));
 
 	// Copy the triangle data to the vertex buffer.
-	UINT8* pVertexDataBegin;
+	UINT8* pVertexDataBegin = nullptr;
 	CD3DX12_RANGE readRange(0, 0);        // We do not intend to read from this resource on the CPU.
 	ThrowOnFail(vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));
 	memcpy(pVertexDataBegin, vertices, sizeof(vertices));
 	vertexBuffer->Unmap(0, nullptr);
 
 	// Initialize the vertex buffer view.
-	D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
+	D3D12_VERTEX_BUFFER_VIEW vertexBufferView = {};
 	vertexBufferView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
 	vertexBufferView.StrideInBytes = sizeof(VertexPositionColor);
 	vertexBufferView.SizeInBytes = vertexBufferSize;
@@ -530,6 +531,7 @@ void Renderer::Initialize(HWND hwnd,
 
 void Renderer::Uninitialize()
 {
+	Flush();
 	CloseHandle(_fenceEvent);
 }
 
@@ -609,28 +611,20 @@ void Present(
 	ThrowOnFail(result);
 }
 
-void Flush(
-	uint64_t* pFenceValue,
-	ComPtr< ID3D12CommandQueue> commandQueue,
-	ComPtr<ID3D12Fence> fence,
-	HANDLE fenceEvent,
-	unsigned int* pCurrentFrameIndex,
-	ComPtr<IDXGISwapChain4> swapChain
-	)
+void Renderer::Flush()
 {
-
-	auto fenceValue = *pFenceValue;
-	(*pFenceValue) = fenceValue + 1;
-	auto result = commandQueue->Signal(fence.Get(), fenceValue);
+	auto fenceValue = _fenceValue;
+	_fenceValue++;
+	auto result = _commandQueue->Signal(_fence.Get(), fenceValue);
 	ThrowOnFail(result);
 
-	if (fence->GetCompletedValue() < fenceValue)
+	if (_fence->GetCompletedValue() < fenceValue)
 	{
-		result = fence->SetEventOnCompletion(fenceValue, fenceEvent);
-		WaitForSingleObject(fenceEvent, INFINITE);
+		result = _fence->SetEventOnCompletion(fenceValue, _fenceEvent);
+		WaitForSingleObject(_fenceEvent, INFINITE);
 	}
 
-	(*pCurrentFrameIndex) = swapChain->GetCurrentBackBufferIndex();
+	(_currentFrameIndex) = _swapChain->GetCurrentBackBufferIndex();
 }
 
 void Renderer::Render()
@@ -660,6 +654,8 @@ void Renderer::Render()
 
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	commandList->IASetVertexBuffers(0, 1, &_triangle);
+	// D3D12 ERROR: ID3D12CommandList::IASetVertexBuffers: pDesc[0].BufferLocation 0x0000000009170000 does not belong to any existing Resource or Heap. [ EXECUTION ERROR #726: SET_VERTEX_BUFFERS_INVALID]
+	// D3D12: **BREAK** enabled for the previous message, which was : [ERROR EXECUTION #726: SET_VERTEX_BUFFERS_INVALID]
 	commandList->DrawInstanced(3, 1, 0, 0);
 
 	Present(
@@ -669,12 +665,5 @@ void Renderer::Render()
 		_swapChain
 	);
 
-	Flush(
-		&_fenceValue,
-		_commandQueue,
-		_fence,
-		_fenceEvent,
-		&_currentFrameIndex,
-		_swapChain
-	);
+	Flush();
 }
