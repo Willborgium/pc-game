@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Model.h"
+
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
@@ -30,6 +32,8 @@ namespace PcGame::Engine
 		ComPtr<ID3D12Debug5> _debugInterface;
 		ComPtr<ID3D12CommandQueue> _commandQueue;
 		ComPtr<IDXGISwapChain4> _swapChain;
+		ComPtr<ID3D12Resource> _depthStencilBuffer;
+		ComPtr<ID3D12DescriptorHeap> _dsvDescriptorHeap;
 		ComPtr<ID3D12DescriptorHeap> _rtvDescriptorHeap;
 		ComPtr<ID3D12Resource> _backBuffers[FrameCount];
 		ComPtr<ID3D12CommandAllocator> _commandAllocators[FrameCount];
@@ -37,11 +41,21 @@ namespace PcGame::Engine
 		ComPtr<ID3D12RootSignature> _rootSignature;
 		ComPtr<ID3D12PipelineState> _pipelineState;
 		ComPtr<ID3D12CommandAllocator> _bundleAllocator;
-		D3D12_VERTEX_BUFFER_VIEW _triangle;
+
 		unsigned int _rtvDescriptorSize;
 		unsigned int _currentFrameIndex;
 		ComPtr<ID3D12Fence> _fence;
 		uint64_t _fenceValue;
 		HANDLE _fenceEvent;
+		D3D12_VIEWPORT _viewport;
+		D3D12_RECT _scissorRect;
+
+		Model* _primitive;
+
+		DirectX::XMMATRIX _viewMatrix;
+		DirectX::XMMATRIX _projectionMatrix;
+		ComPtr<ID3D12Resource> _viewProjectionBuffer;
+
+		float _number;
 	};
 };

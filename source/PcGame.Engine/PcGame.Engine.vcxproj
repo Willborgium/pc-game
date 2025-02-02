@@ -160,6 +160,8 @@
     <ClInclude Include="EntryPoint.h" />
     <ClInclude Include="BaseState.h" />
     <ClInclude Include="IState.h" />
+    <ClInclude Include="Mesh.h" />
+    <ClInclude Include="Model.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="ServiceManager.h" />
     <ClInclude Include="Utilities.h" />
@@ -168,6 +170,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Game.cpp" />
+    <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="Model.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="ServiceManager.cpp" />
     <ClCompile Include="Utilities.cpp" />
