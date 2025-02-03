@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Model.h"
+#include "ICamera.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -52,10 +53,6 @@ namespace PcGame::Engine
 
 		Model* _primitive;
 
-		DirectX::XMMATRIX _viewMatrix;
-		DirectX::XMMATRIX _projectionMatrix;
-		ComPtr<ID3D12Resource> _viewProjectionBuffer;
-
-		float _number;
+		ICamera* _camera;
 	};
 };

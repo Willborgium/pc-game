@@ -4,6 +4,8 @@
 #include "Game.h"
 #include "EntryPoint.h"
 
+#include "KeyboardInputHandler.h"
+
 using namespace PcGame::Engine;
 
 int WINAPI WinMain(
@@ -13,6 +15,8 @@ int WINAPI WinMain(
 	_In_ int			nCmdShow
 )
 {
+	new KeyboardInputHandler();
+
 	auto serviceManager = new ServiceManager();
 
 	const auto data = InitializeApp(serviceManager);

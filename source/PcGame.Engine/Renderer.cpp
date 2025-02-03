@@ -1,6 +1,11 @@
 #include "Renderer.h"
 #include "Utilities.h"
 #include "VertexPositionColor.h"
+#include "KeyboardInputHandler.h"
+
+#include "TargetCamera.h"
+#include "FreeCamera.h"
+
 using namespace PcGame::Engine;
 
 #include <d3dcompiler.h>
@@ -558,17 +563,6 @@ Renderer::Renderer()
 	_scissorRect = {};
 }
 
-DirectX::XMMATRIX GetViewMatrix(float px, float py, float pz, float tx, float ty, float tz)
-{
-	auto positionF = XMFLOAT3(px, py, pz);
-	XMVECTOR positionV = XMLoadFloat3(&positionF);
-	auto targetF = XMFLOAT3(tx, ty, tz);
-	XMVECTOR targetV = XMLoadFloat3(&targetF);
-	auto upF = XMFLOAT3(0, 1, 0);
-	XMVECTOR upV = XMLoadFloat3(&upF);
-	return DirectX::XMMatrixLookAtLH(positionV, targetV, upV);
-}
-
 void Renderer::Initialize(HWND hwnd, uint32_t width, uint32_t height)
 {
 	_debugInterface = CreateDebugInterface();
@@ -589,21 +583,18 @@ void Renderer::Initialize(HWND hwnd, uint32_t width, uint32_t height)
 
 	_scissorRect = { 0, 0, static_cast<long>(width), static_cast<long>(height) };
 
-	_viewMatrix = GetViewMatrix(2, 2, -2, 0, 0, 1);
 
 	auto aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 	float fovAngleY = 60.0f * XM_PI / 180.0f;
 
-	_projectionMatrix = DirectX::XMMatrixIdentity();
+	auto targetCamera = new TargetCamera(_device, fovAngleY, aspectRatio, 0.01f, 1000.0f);
+	targetCamera->SetPosition(0, 0, -2);
+	targetCamera->SetTarget(0, 0, 0);
 
-	_projectionMatrix = DirectX::XMMatrixPerspectiveFovLH(
-		fovAngleY,			 // Field of view angle
-		aspectRatio,         // Aspect ratio
-		0.01f,               // Near clipping plane
-		1000.0f              // Far clipping plane
-	);
+	auto freeCamera = new FreeCamera(_device, fovAngleY, aspectRatio, 0.01f, 1000.0f);
+	freeCamera->SetPosition(0, 0, -2);
 
-	_viewProjectionBuffer = CreateConstantBuffer(_device, sizeof(DirectX::XMMATRIX) * 2);
+	_camera = targetCamera;
 
 	_currentFrameIndex = _swapChain->GetCurrentBackBufferIndex();
 
@@ -744,8 +735,6 @@ void Present(
 	ThrowOnFail(result);
 }
 
-bool _isIncreasing = true;
-
 void Renderer::Render()
 {
 	auto& commandAllocator = _commandAllocators[_currentFrameIndex];
@@ -780,32 +769,9 @@ void Renderer::Render()
 
 	commandList->ClearDepthStencilView(dsvDescriptorHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
-	// Update the view-projection buffer
-	DirectX::XMMATRIX viewProjection[2] = { _viewMatrix, _projectionMatrix };
-	UpdateConstantBuffer(_viewProjectionBuffer, viewProjection, sizeof(viewProjection));
-	commandList->SetGraphicsRootConstantBufferView(0, _viewProjectionBuffer->GetGPUVirtualAddress());
+	MoveCamera(_camera);
 
-	//_primitive->Translate(0.0f, 0.0f, 0.01f);
-	_primitive->Rotate(0.0f, 0.01f, 0.0f);
-
-	if (_isIncreasing)
-	{
-		auto s = _primitive->Scale(.01f, .01f, .01f);
-
-		if (s.x > 1.5f)
-		{
-			_isIncreasing = false;
-		}
-	}
-	else
-	{
-		auto s = _primitive->Scale(-.01f, -.01f, -.01f);
-
-		if (s.x < .5f)
-		{
-			_isIncreasing = true;
-		}
-	}
+	_camera->Render(commandList);
 
 	_primitive->Draw(commandList);
 

@@ -156,10 +156,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ICamera.h" />
+    <ClInclude Include="TargetCamera.h" />
+    <ClInclude Include="FreeCamera.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="EntryPoint.h" />
     <ClInclude Include="BaseState.h" />
     <ClInclude Include="IState.h" />
+    <ClInclude Include="KeyboardInputHandler.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="Renderer.h" />
@@ -169,7 +173,10 @@
     <ClInclude Include="WndProc.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="TargetCamera.cpp" />
+    <ClCompile Include="FreeCamera.cpp" />
     <ClCompile Include="Game.cpp" />
+    <ClCompile Include="KeyboardInputHandler.cpp" />
     <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="Renderer.cpp" />
