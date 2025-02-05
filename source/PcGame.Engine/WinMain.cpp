@@ -26,6 +26,7 @@ int WINAPI WinMain(
 	PcGame::Engine::Game game(initialState);
 
 	game.Initialize(
+		serviceManager,
 		data.appName,
 		hInstance,
 		data.windowWidth,

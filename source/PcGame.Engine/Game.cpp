@@ -21,13 +21,15 @@ Game::Game(IState* initialState)
 	_state = initialState;
 }
 
-void Game::Initialize(LPCWSTR appName, HINSTANCE hInstance, int width, int height, int nCmdShow)
+void Game::Initialize(ServiceManager* serviceManager, LPCWSTR appName, HINSTANCE hInstance, int width, int height, int nCmdShow)
 {
 	CreateAppWindow(appName, hInstance, width, height, nCmdShow);
 
 	_renderer = new Renderer();
 
 	_renderer->Initialize(_hWnd, width, height);
+
+	serviceManager->set("renderer", _renderer);
 
 	_isInitialized = true;
 }
@@ -98,8 +100,13 @@ int Game::Run()
 		}
 		else
 		{
+			if (_state->IsInitialized() == false)
+			{
+				_state->Initialize();
+			}
+
 			_state->Update();
-			_renderer->Render();
+			_renderer->Render(_state);
 		}
 	}
 

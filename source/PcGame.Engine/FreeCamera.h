@@ -1,13 +1,14 @@
 #pragma once
 
 #include "ICamera.h"
+#include "Renderer.h"
 
 namespace PcGame::Engine
 {
 	class FreeCamera : public ICamera
 	{
 	public:
-		FreeCamera(ComPtr<ID3D12Device2> device, float fieldOfView, float aspectRatio, float nearPlane, float farPlane);
+		FreeCamera(Renderer* renderer, float fieldOfView, float aspectRatio, float nearPlane, float farPlane);
 
 		DirectX::XMFLOAT3 GetPosition() const { return _position; }
 		DirectX::XMFLOAT3 SetPosition(float x, float y, float z);

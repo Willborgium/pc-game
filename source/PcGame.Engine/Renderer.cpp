@@ -3,9 +3,6 @@
 #include "VertexPositionColor.h"
 #include "KeyboardInputHandler.h"
 
-#include "TargetCamera.h"
-#include "FreeCamera.h"
-
 using namespace PcGame::Engine;
 
 #include <d3dcompiler.h>
@@ -489,53 +486,6 @@ ComPtr<ID3D12RootSignature> CreateRootSignature(ComPtr<ID3D12Device> device)
 	return rootSignature;
 }
 
-Mesh CreateTestMesh(ComPtr<ID3D12Device> device)
-{
-	// Initialize the vertices
-	std::vector<VertexPositionColor> vertices = {
-		// Front face (z = +0.5f)
-		{ { -0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f, 1.0f } }, // Vertex 0 - Red
-		{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f, 1.0f } }, // Vertex 1 - Green
-		{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f, 1.0f } }, // Vertex 2 - Blue
-		{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f, 0.0f, 1.0f } }, // Vertex 3 - Yellow
-
-		// Back face (z = -0.5f)
-		{ { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 1.0f, 1.0f } }, // Vertex 4 - Magenta
-		{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 1.0f, 1.0f } }, // Vertex 5 - Cyan
-		{ {  0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f, 1.0f, 1.0f } }, // Vertex 6 - White
-		{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, 0.0f, 1.0f } }, // Vertex 7 - Black
-	};
-
-	// Initialize the indices
-	std::vector<uint32_t> indices = {
-		// Front face
-		0, 1, 2,
-		0, 2, 3,
-
-		// Back face
-		4, 6, 5,
-		4, 7, 6,
-
-		// Left face
-		4, 5, 1,
-		4, 1, 0,
-
-		// Right face
-		3, 2, 6,
-		3, 6, 7,
-
-		// Top face
-		1, 5, 6,
-		1, 6, 2,
-
-		// Bottom face
-		4, 0, 3,
-		4, 3, 7,
-	};
-
-	return Mesh(device, vertices, indices);
-}
-
 CD3DX12_CPU_DESCRIPTOR_HANDLE GetCurrentRtvDescriptorHandle(
 	ComPtr<ID3D12DescriptorHeap> descriptorHeap,
 	unsigned int currentFrameIndex,
@@ -563,6 +513,24 @@ Renderer::Renderer()
 	_scissorRect = {};
 }
 
+ComPtr<ID3D12Resource> Renderer::CreateConstantBuffer(size_t bufferSize)
+{
+	ComPtr<ID3D12Resource> constantBuffer;
+
+	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
+	auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize);
+
+	PcGame::Engine::ThrowOnFail(_device->CreateCommittedResource(
+		&heapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&bufferDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&constantBuffer)));
+
+	return constantBuffer;
+}
+
 void Renderer::Initialize(HWND hwnd, uint32_t width, uint32_t height)
 {
 	_debugInterface = CreateDebugInterface();
@@ -582,19 +550,6 @@ void Renderer::Initialize(HWND hwnd, uint32_t width, uint32_t height)
 	_viewport.MaxDepth = 1.0f;
 
 	_scissorRect = { 0, 0, static_cast<long>(width), static_cast<long>(height) };
-
-
-	auto aspectRatio = static_cast<float>(width) / static_cast<float>(height);
-	float fovAngleY = 60.0f * XM_PI / 180.0f;
-
-	auto targetCamera = new TargetCamera(_device, fovAngleY, aspectRatio, 0.01f, 1000.0f);
-	targetCamera->SetPosition(0, 0, -2);
-	targetCamera->SetTarget(0, 0, 0);
-
-	auto freeCamera = new FreeCamera(_device, fovAngleY, aspectRatio, 0.01f, 1000.0f);
-	freeCamera->SetPosition(0, 0, -2);
-
-	_camera = targetCamera;
 
 	_currentFrameIndex = _swapChain->GetCurrentBackBufferIndex();
 
@@ -619,9 +574,6 @@ void Renderer::Initialize(HWND hwnd, uint32_t width, uint32_t height)
 	_rootSignature = CreateRootSignature(_device);
 
 	_pipelineState = CreatePipelineState(_device, _rootSignature);
-
-	auto mesh = CreateTestMesh(_device);
-	_primitive = new Model(_device, { mesh });
 
 	_fence = CreateFence(_device);
 	_fenceValue = 1;
@@ -735,7 +687,7 @@ void Present(
 	ThrowOnFail(result);
 }
 
-void Renderer::Render()
+void Renderer::Render(IState* state)
 {
 	auto& commandAllocator = _commandAllocators[_currentFrameIndex];
 	auto& commandList = _commandLists[_currentFrameIndex];
@@ -769,11 +721,7 @@ void Renderer::Render()
 
 	commandList->ClearDepthStencilView(dsvDescriptorHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
-	MoveCamera(_camera);
-
-	_camera->Render(commandList);
-
-	_primitive->Draw(commandList);
+	state->Render(commandList);
 
 	Present(
 		backBuffer,

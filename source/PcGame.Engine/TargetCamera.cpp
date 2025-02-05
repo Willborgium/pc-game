@@ -43,7 +43,7 @@ static DirectX::XMFLOAT3 RotatePointAroundOrigin(const DirectX::XMFLOAT3& positi
 	return result;
 }
 
-TargetCamera::TargetCamera(ComPtr<ID3D12Device2> device, float fieldOfView, float aspectRatio, float nearPlane, float farPlane)
+TargetCamera::TargetCamera(Renderer* renderer, float fieldOfView, float aspectRatio, float nearPlane, float farPlane)
 	: _position({ 0.0f, 0.0f, 0.0f }),
 	  _target({ 0.0f, 0.0f, 1.0f }),
       _up({ 0.0f, 1.0f, 0.0f }),
@@ -54,7 +54,7 @@ TargetCamera::TargetCamera(ComPtr<ID3D12Device2> device, float fieldOfView, floa
 	  _constantBuffer(nullptr)
 {
 	auto size = sizeof(DirectX::XMMATRIX) * 2;
-	_constantBuffer = CreateConstantBuffer(device, size);
+	_constantBuffer = renderer->CreateConstantBuffer(size);
 }
 
 DirectX::XMFLOAT3 TargetCamera::SetPosition(float x, float y, float z)

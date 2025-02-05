@@ -6,12 +6,14 @@ using namespace Microsoft::WRL;
 #include <d3dx12.h>
 #include "VertexPositionColor.h"
 
+#include "Renderer.h"
+
 namespace PcGame::Engine
 {
     class Mesh
     {
     public:
-        Mesh(ComPtr<ID3D12Device> device, const std::vector<VertexPositionColor>& vertices, const std::vector<uint32_t>& indices);
+        Mesh(Renderer* renderer, const std::vector<VertexPositionColor>& vertices, const std::vector<uint32_t>& indices);
         void Draw(ComPtr<ID3D12GraphicsCommandList> commandList) const;
 
     private:

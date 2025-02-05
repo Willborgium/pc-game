@@ -3,10 +3,10 @@
 
 using namespace PcGame::Engine;
 
-Model::Model(ComPtr<ID3D12Device2> device, std::vector<Mesh> meshes)
+Model::Model(Renderer* renderer, std::vector<Mesh> meshes)
 	: _meshes(meshes), _position(0, 0, 0), _rotation(0, 0, 0), _scale(1, 1, 1)
 {
-	_worldBuffer = CreateConstantBuffer(device, sizeof(DirectX::XMMATRIX) * 3);
+	_worldBuffer = renderer->CreateConstantBuffer(sizeof(DirectX::XMMATRIX) * 3);
 }
 
 void Model::Draw(ComPtr<ID3D12GraphicsCommandList> commandList)

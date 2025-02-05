@@ -1,8 +1,5 @@
 #pragma once
 
-#include "Model.h"
-#include "ICamera.h"
-
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
@@ -13,6 +10,8 @@ using namespace Microsoft::WRL;
 #include <dxgi1_6.h>
 #include <stdint.h>
 
+#include "IState.h"
+
 namespace PcGame::Engine
 {
 	class Renderer
@@ -21,8 +20,10 @@ namespace PcGame::Engine
 		Renderer();
 		void Initialize(HWND hwnd, uint32_t width, uint32_t height);
 		void UpdateRenderTargetViews();
-		void Render();
+		void Render(IState* state);
 		void Uninitialize();
+
+		ComPtr<ID3D12Resource> CreateConstantBuffer(size_t bufferSize);
 
 	private:
 
@@ -50,9 +51,5 @@ namespace PcGame::Engine
 		HANDLE _fenceEvent;
 		D3D12_VIEWPORT _viewport;
 		D3D12_RECT _scissorRect;
-
-		Model* _primitive;
-
-		ICamera* _camera;
 	};
 };

@@ -6,6 +6,7 @@
 #include <DirectXMath.h>
 
 #include "Mesh.h"
+#include "Renderer.h"
 
 using namespace Microsoft::WRL;
 
@@ -14,7 +15,7 @@ namespace PcGame::Engine
     class Model
     {
     public:
-        Model(ComPtr<ID3D12Device2> device, std::vector<Mesh> meshes);
+        Model(Renderer* renderer, std::vector<Mesh> meshes);
         void Draw(ComPtr<ID3D12GraphicsCommandList> commandList);
 
         DirectX::XMFLOAT3 GetScale() const { return _scale; }

@@ -5,6 +5,7 @@
 
 #include "Renderer.h"
 #include "IState.h"
+#include "ServiceManager.h"
 
 namespace PcGame::Engine
 {
@@ -12,7 +13,7 @@ namespace PcGame::Engine
 	{
 	public:
 		Game(IState* initialState);
-		void Initialize(LPCWSTR appName, HINSTANCE hInstance, int width, int height, int nCmdShow);
+		void Initialize(ServiceManager* serviceManager, LPCWSTR appName, HINSTANCE hInstance, int width, int height, int nCmdShow);
 		int Run();
 		void Uninitialize();
 	private:

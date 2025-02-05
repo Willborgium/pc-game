@@ -3,19 +3,11 @@
 
 using namespace PcGame::Engine;
 
-Mesh::Mesh(ComPtr<ID3D12Device> device, const std::vector<VertexPositionColor>& vertices, const std::vector<uint32_t>& indices)
+Mesh::Mesh(Renderer* renderer, const std::vector<VertexPositionColor>& vertices, const std::vector<uint32_t>& indices)
 {
 	// Create vertex buffer
 	const UINT vertexBufferSize = static_cast<UINT>(vertices.size() * sizeof(VertexPositionColor));
-	CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
-	auto vertexBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize);
-	ThrowOnFail(device->CreateCommittedResource(
-		&heapProps,
-		D3D12_HEAP_FLAG_NONE,
-		&vertexBufferDesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&_vertexBuffer)));
+	_vertexBuffer = renderer->CreateConstantBuffer(vertexBufferSize);
 
 	// Copy vertex data
 	UINT8* pVertexDataBegin = nullptr;
@@ -31,14 +23,7 @@ Mesh::Mesh(ComPtr<ID3D12Device> device, const std::vector<VertexPositionColor>& 
 
 	// Create index buffer
 	const UINT indexBufferSize = static_cast<UINT>(indices.size() * sizeof(uint32_t));
-	auto indexBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize);
-	ThrowOnFail(device->CreateCommittedResource(
-		&heapProps,
-		D3D12_HEAP_FLAG_NONE,
-		&indexBufferDesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&_indexBuffer)));
+	_indexBuffer = renderer->CreateConstantBuffer(indexBufferSize);
 
 	// Copy index data
 	UINT8* pIndexDataBegin = nullptr;

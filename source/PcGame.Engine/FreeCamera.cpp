@@ -4,7 +4,7 @@
 
 using namespace PcGame::Engine;
 
-FreeCamera::FreeCamera(ComPtr<ID3D12Device2> device, float fieldOfView, float aspectRatio, float nearPlane, float farPlane)
+FreeCamera::FreeCamera(Renderer* renderer, float fieldOfView, float aspectRatio, float nearPlane, float farPlane)
 	: _position({ 0.0f, 0.0f, 0.0f }),
 	_direction({ 0.0f, 0.0f, 1.0f }),
 	_up({ 0.0f, 1.0f, 0.0f }),
@@ -15,7 +15,7 @@ FreeCamera::FreeCamera(ComPtr<ID3D12Device2> device, float fieldOfView, float as
 	_constantBuffer(nullptr)
 {
 	auto size = sizeof(DirectX::XMMATRIX) * 2;
-	_constantBuffer = CreateConstantBuffer(device, size);
+	_constantBuffer = renderer->CreateConstantBuffer(size);
 }
 
 DirectX::XMFLOAT3 FreeCamera::SetPosition(float x, float y, float z)

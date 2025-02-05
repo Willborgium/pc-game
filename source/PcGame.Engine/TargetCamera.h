@@ -1,13 +1,14 @@
 #pragma once
 
 #include "ICamera.h"
+#include "Renderer.h"
 
 namespace PcGame::Engine
 {
 	class TargetCamera : public ICamera
 	{
 	public:
-		TargetCamera(ComPtr<ID3D12Device2> device, float fieldOfView, float aspectRatio, float nearPlane, float farPlane);
+		TargetCamera(Renderer* renderer, float fieldOfView, float aspectRatio, float nearPlane, float farPlane);
 
 		DirectX::XMFLOAT3 GetPosition() const { return _position; }
 		DirectX::XMFLOAT3 GetTarget() const { return _target; }
