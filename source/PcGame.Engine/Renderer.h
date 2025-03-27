@@ -24,6 +24,15 @@ namespace PcGame::Engine
 		void Uninitialize();
 
 		ComPtr<ID3D12Resource> CreateConstantBuffer(size_t bufferSize);
+		ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(UINT count, D3D12_DESCRIPTOR_HEAP_TYPE type);
+		ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(UINT count, D3D12_DESCRIPTOR_HEAP_TYPE type, D3D12_DESCRIPTOR_HEAP_FLAGS flags);
+
+		// These methods are just direct maps to DX12 methods, but they can be improved later
+		void CreateShaderResourceView(ComPtr<ID3D12Resource> resource, const D3D12_SHADER_RESOURCE_VIEW_DESC* desc, D3D12_CPU_DESCRIPTOR_HANDLE handle);
+		ComPtr<ID3D12Resource> CreateCommittedResource(const D3D12_HEAP_PROPERTIES* heapProperties, const D3D12_RESOURCE_DESC* resourceDesc, D3D12_RESOURCE_STATES initialState);
+		void Update(ID3D12Resource* destination, ID3D12Resource* intermediate, uint64_t intermediateOffset, uint32_t firstSubresource, uint32_t subresourceCount, const D3D12_SUBRESOURCE_DATA* subresourceData);
+
+		void ResourceBarrier(ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after);
 
 	private:
 

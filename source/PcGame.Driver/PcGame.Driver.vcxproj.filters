@@ -26,10 +26,18 @@
     <CopyFileToFolders Include="shaders.hlsl">
       <Filter>Resource Files</Filter>
     </CopyFileToFolders>
+    <CopyFileToFolders Include="segoe-ui.fnt">
+      <Filter>Resource Files</Filter>
+    </CopyFileToFolders>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SampleState.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="segoe-ui_0.tga">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

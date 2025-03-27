@@ -79,6 +79,9 @@ void PcGame::Driver::SampleState::Initialize()
 	auto mesh = CreateTestMesh(_renderer);
 	_primitive = new Model(_renderer, { mesh });
 
+	_textRenderer = new TextRenderer();
+	_textRenderer->Initialize(_renderer, L"Assets/Fonts/arial_32.png", L"Assets/Fonts/arial_32.fnt");
+
 	BaseState::Initialize();
 }
 

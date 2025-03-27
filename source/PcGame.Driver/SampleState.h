@@ -6,6 +6,8 @@
 #include "ICamera.h"
 #include "Renderer.h"
 
+#include "TextRenderer.h"
+
 using namespace PcGame::Engine;
 
 namespace PcGame::Driver
@@ -14,7 +16,7 @@ namespace PcGame::Driver
 	{
 	public:
 		SampleState(ServiceManager* serviceManager)
-			: BaseState(serviceManager), _primitive(nullptr), _camera(nullptr), _renderer(nullptr)
+			: BaseState(serviceManager), _primitive(nullptr), _camera(nullptr), _renderer(nullptr), _textRenderer(nullptr)
 		{
 			_serviceManager = serviceManager;
 		}
@@ -29,5 +31,7 @@ namespace PcGame::Driver
 
 		Renderer* _renderer;
 		ServiceManager* _serviceManager;
+
+		TextRenderer* _textRenderer;
 	};
 }

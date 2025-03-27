@@ -302,6 +302,8 @@ ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(ComPtr
 		&description,
 		IID_PPV_ARGS(&descriptorHeap));
 
+	ThrowOnFail(result);
+
 	return descriptorHeap;
 }
 
@@ -531,6 +533,53 @@ ComPtr<ID3D12Resource> Renderer::CreateConstantBuffer(size_t bufferSize)
 	return constantBuffer;
 }
 
+ComPtr<ID3D12DescriptorHeap> Renderer::CreateDescriptorHeap(UINT count, D3D12_DESCRIPTOR_HEAP_TYPE type)
+{
+	return CreateDescriptorHeap(count, type, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+}
+
+ComPtr<ID3D12DescriptorHeap> Renderer::CreateDescriptorHeap(UINT count, D3D12_DESCRIPTOR_HEAP_TYPE type, D3D12_DESCRIPTOR_HEAP_FLAGS flags)
+{
+	ComPtr<ID3D12DescriptorHeap> descriptorHeap;
+	D3D12_DESCRIPTOR_HEAP_DESC description = {};
+	description.NumDescriptors = count;
+	description.Type = type;
+	description.Flags = flags;
+	auto result = _device->CreateDescriptorHeap(&description, IID_PPV_ARGS(&descriptorHeap));
+	ThrowOnFail(result);
+	return descriptorHeap;
+}
+
+void Renderer::CreateShaderResourceView(ComPtr<ID3D12Resource> resource, const D3D12_SHADER_RESOURCE_VIEW_DESC* desc, D3D12_CPU_DESCRIPTOR_HANDLE handle)
+{
+	_device->CreateShaderResourceView(resource.Get(), desc, handle);
+}
+
+ComPtr<ID3D12Resource> Renderer::CreateCommittedResource(const D3D12_HEAP_PROPERTIES* heapProperties, const D3D12_RESOURCE_DESC* resourceDesc, D3D12_RESOURCE_STATES initialState)
+{
+	ComPtr<ID3D12Resource> resource;
+	auto result = _device->CreateCommittedResource(
+		heapProperties,
+		D3D12_HEAP_FLAG_NONE,
+		resourceDesc,
+		initialState,
+		nullptr,
+		IID_PPV_ARGS(&resource));
+	ThrowOnFail(result);
+	return resource;
+}
+
+void Renderer::Update(ID3D12Resource* destination, ID3D12Resource* intermediate, uint64_t intermediateOffset, uint32_t firstSubresource, uint32_t subresourceCount, const D3D12_SUBRESOURCE_DATA* subresourceData)
+{
+	UpdateSubresources(_commandLists[_currentFrameIndex].Get(), destination, intermediate, intermediateOffset, firstSubresource, subresourceCount, subresourceData);
+}
+
+void Renderer::ResourceBarrier(ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
+{
+	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(resource, before, after);
+	_commandLists[_currentFrameIndex]->ResourceBarrier(1, &barrier);
+}
+
 void Renderer::Initialize(HWND hwnd, uint32_t width, uint32_t height)
 {
 	_debugInterface = CreateDebugInterface();
@@ -553,7 +602,7 @@ void Renderer::Initialize(HWND hwnd, uint32_t width, uint32_t height)
 
 	_currentFrameIndex = _swapChain->GetCurrentBackBufferIndex();
 
-	_rtvDescriptorHeap = CreateDescriptorHeap(_device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, FrameCount);
+	_rtvDescriptorHeap = CreateDescriptorHeap(FrameCount, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
 	_rtvDescriptorSize = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
